@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicode Slideshow</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: #181825;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #89b4fa;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .display-box {
+            background: #11111b;
+            width: 100%;
+            border-radius: 8px;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #313244;
+            margin-bottom: 2rem;
+        }
+        .char-preview {
+            font-size: 8rem;
+            line-height: 1;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a6e3a1;
+            margin-bottom: 1rem;
+            word-break: keep-all;
+            white-space: nowrap;
+        }
+        .info-row {
+            display: flex;
+            gap: 1.5rem;
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #bac2de;
+        }
+        .controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #89b4fa;
+            color: #11111b;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: background 0.2s, transform 0.1s;
+        }
+        button:hover:not(:disabled) {
+            background: #b4befe;
+        }
+        button:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+        button.stop {
+            background: #f38ba8;
+        }
+        button.stop:hover:not(:disabled) {
+            background: #eba0ac;
+        }
+        button.action {
+            background: #cba6f7;
+        }
+        button.action:hover:not(:disabled) {
+            background: #f5c2e7;
+        }
+        button:disabled {
+            background: #313244;
+            color: #7f849c;
+            cursor: not-allowed;
+            border: 1px solid #45475a;
+        }
+        input[type="number"] {
+            background: #313244;
+            color: #f5e0dc;
+            border: 1px solid #45475a;
+            border-radius: 6px;
+            padding: 0.5rem;
+            font-size: 1rem;
+            width: 100px;
+            text-align: center;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #89b4fa;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            justify-content: center;
+            color: #a6adc8;
+            font-size: 0.9rem;
+        }
+        input[type="range"] {
+            width: 200px;
+            accent-color: #89b4fa;
+        }
+        .jump-box {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Unicode Slideshow</h2>
+    
+    <div class="display-box">
+        <div class="char-preview" id="charDisplay"></div>
+        <div class="info-row">
+            <span id="hexDisplay">U+0000</span>
+            <span>|</span>
+            <span id="decDisplay">Dec: 0</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <button id="btnPlay">Play</button>
+            <button id="btnStop" class="stop" disabled>Stop</button>
+            <button id="btnReset" class="action">Reset (U+0000)</button>
+            <button id="btnCopy" class="action">Copy Char</button>
+        </div>
+
+        <div class="slider-group">
+            <label for="speedSlider">Speed (Fast &rarr; Slow):</label>
+            <input type="range" id="speedSlider" min="10" max="2000" value="500" step="10">
+            <span id="speedValue">500ms</span>
+        </div>
+
+        <div class="control-group">
+            <button id="btnRewind">&laquo; Rewind</button>
+            <div class="jump-box">
+                <input type="number" id="stepAmount" value="1" min="1" max="1114111">
+                <span style="color: #a6adc8; font-size: 0.9rem;">chars</span>
+            </div>
+            <button id="btnForward">Forward &raquo;</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentCodePoint = 0;
+    const MAX_CODEPOINT = 0x10FFFF; // 1,114,111
+    
+    let isPlaying = false;
+    let timerId = null;
+
+    const charDisplay = document.getElementById('charDisplay');
+    const hexDisplay = document.getElementById('hexDisplay');
+    const decDisplay = document.getElementById('decDisplay');
+    
+    const btnPlay = document.getElementById('btnPlay');
+    const btnStop = document.getElementById('btnStop');
+    const btnReset = document.getElementById('btnReset');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnRewind = document.getElementById('btnRewind');
+    const btnForward = document.getElementById('btnForward');
+    
+    const stepAmount = document.getElementById('stepAmount');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedValue = document.getElementById('speedValue');
+
+    function updateDisplay() {
+        let charStr = "";
+        try {
+            charStr = String.fromCodePoint(currentCodePoint);
+        } catch (e) {
+            charStr = "";
+        }
+        
+        charDisplay.textContent = charStr;
+        
+        const hexStr = currentCodePoint.toString(16).toUpperCase().padStart(4, '0');
+        hexDisplay.textContent = `U+${hexStr}`;
+        decDisplay.textContent = `Dec: ${currentCodePoint}`;
+    }
+
+    function step(direction) {
+        const stepVal = parseInt(stepAmount.value, 10) || 1;
+        currentCodePoint += (direction * stepVal);
+
+        if (currentCodePoint > MAX_CODEPOINT) {
+            currentCodePoint = MAX_CODEPOINT;
+        } else if (currentCodePoint < 0) {
+            currentCodePoint = 0;
+        }
+        updateDisplay();
+    }
+
+    function playLoop() {
+        if (!isPlaying) return;
+        
+        currentCodePoint++;
+        if (currentCodePoint > MAX_CODEPOINT) {
+            currentCodePoint = 0; 
+        }
+        updateDisplay();
+
+        const speed = parseInt(speedSlider.value, 10);
+        timerId = setTimeout(playLoop, speed);
+    }
+
+    function startSlideshow() {
+        if (isPlaying) return;
+        isPlaying = true;
+        
+        btnPlay.disabled = true;
+        btnStop.disabled = false;
+        btnCopy.disabled = true; // Grey out copy button during playback
+        
+        playLoop();
+    }
+
+    function stopSlideshow() {
+        isPlaying = false;
+        clearTimeout(timerId);
+        
+        btnPlay.disabled = false;
+        btnStop.disabled = true;
+        btnCopy.disabled = false; // Re-enable copy button when stopped
+    }
+
+    // Event Listeners
+    btnPlay.addEventListener('click', startSlideshow);
+    btnStop.addEventListener('click', stopSlideshow);
+    
+    btnReset.addEventListener('click', () => {
+        stopSlideshow();
+        currentCodePoint = 0;
+        updateDisplay();
+    });
+
+    btnCopy.addEventListener('click', () => {
+        const textToCopy = charDisplay.textContent;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalText = btnCopy.textContent;
+            btnCopy.textContent = 'Copied!';
+            btnCopy.style.backgroundColor = '#a6e3a1';
+            btnCopy.style.color = '#11111b';
+            
+            setTimeout(() => {
+                btnCopy.textContent = originalText;
+                btnCopy.style.backgroundColor = '';
+                btnCopy.style.color = '';
+            }, 1200);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    });
+    
+    btnRewind.addEventListener('click', () => {
+        stopSlideshow();
+        step(-1);
+    });
+    
+    btnForward.addEventListener('click', () => {
+        stopSlideshow();
+        step(1);
+    });
+
+    speedSlider.addEventListener('input', () => {
+        speedValue.textContent = `${speedSlider.value}ms`;
+    });
+
+    // Initialize first frame
+    updateDisplay();
+</script>
+
+</body>
+</html>
