@@ -1,2 +1,3 @@
 # Unicode-Slideshow
-This a slideshow design to got U+0000–U+10FFFF
+This a slideshow designed to showcase U+0000–U+10FFFF!
+Watch out for mojibake!
